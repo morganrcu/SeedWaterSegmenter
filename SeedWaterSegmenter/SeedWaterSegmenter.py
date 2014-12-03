@@ -41,11 +41,15 @@ from numpy.random import rand
 
 import scipy.ndimage
 import scipy.sparse
+import scipy.spatial
+import scipy.spatial.distance
 import Image
 import GifTiffLoader as GTL
 
 import wx
 import math
+
+
 from scipy.ndimage import center_of_mass,gaussian_filter,median_filter
 
 import matplotlib
@@ -54,6 +58,10 @@ matplotlib.use('WxAgg')
 from mpl_polygon_lasso import PolyLasso, points_inside_poly
 import matplotlib.pyplot as plt
 
+
+import munkres
+
+
 import mahotas
 
 import ImageContour
@@ -61,7 +69,7 @@ import EllipseFitter
 import ExcelHelper
 
 import SWHelpers
-
+import numpy.matlib as ml
 class Timer(object):
     def __init__(self):
         self.timeStart=time()
@@ -127,7 +135,7 @@ try:
         return w
 except ImportError:
     HAS_CV=False
-
+import cv2
 letterKeys = '''a: Change to Add/Delete Mode
 b: Background Subtraction
 c: Change to Center Mode (select wound center for post-processing)
@@ -889,6 +897,10 @@ class WatershedData(object):
             self.SetUndoPoint()
             maxMap = MaxMinFinder(gaussian_filter(self.origData[self.index],self.gaussSigma)) # Max pts of gauss filtered image (single pixels with values of 1)
             row,col = np.where(maxMap)
+            
+            '''save number of seeds'''
+            self.numseeds=row.shape[0];
+            
             self.seedArray[:]=0
             for i in range(len(row)):
                 self.seedArray[row[i],col[i]] = i+2 # 0 and 1 are reserved for unfilled region and background value respectively
@@ -933,6 +945,20 @@ class WatershedData(object):
             self.watershed[self.index][w]=1
         else:
             print self.walgorithm[self.index],'is not a valid watershed algorithm!'
+        
+        self.centroids=[]
+        
+        for i in range(2,self.numseeds+2):
+            frame = self.watershed[0,:,:]
+            mask = frame == i
+            binaryMask=np.zeros(mask.shape)
+            binaryMask[mask]=255
+            moment = cv2.moments(binaryMask,True)
+            x= moment['m10']/moment['m00']
+            y= moment['m01']/moment['m00']
+            self.centroids.append((x,y))
+        print len(self.centroids)
+        
         self.woutline = CreateOutlines(self.watershed[self.index],
                                        walgorithm=self.walgorithm[self.index])
     def UpdateValuesList(self,index=None):
@@ -3590,7 +3616,64 @@ class SegmenterApp(wx.App):
 def InitializeMPL():
     plt.ion()
 
+def ExploreRange(img):
+        
+        #if GTL.GetShapeMonolithicOrSequence(self.filename)[3]: #isSequence
+        #    g=GTL.LoadFileSequence(os.path.split(self.filename)[0])
+        #else:
+        #    g=GTL.LoadMonolithic(self.filename)
+        
+    imin=3
+    imax=10;
+    
+    for i in range(imin,imax):
+        
+        sigma = 2**i
+        print 'Sigma %f' %(sigma)  
+        wd = WatershedData(g)
+        wd.Gauss(sigma)
+        wd.UpdateSeeds(force=True)
+        
+        print wd.centroids
+        
+        cent = np.array(wd.centroids)
+        
+        computeMatch(cent, cent)
+        
+
+
+def computeMatch(fea_a,fea_b):
+    epsilon=2
+    D=scipy.spatial.distance.cdist(fea_a,fea_b)
+    D[D>=epsilon]=float("inf")
+    m = munkres.Munkres()
+    indexes = m.compute(D)
+    print indexes
+    '''
+     aa = sum(fea_a.*fea_a,2);
+     bb = sum(fea_b.*fea_b,2);
+% ab = fea_a*fea_b';
+%
+% aa = full(aa);
+% bb = full(bb);
+% ab = full(ab);
+%
+% if bSqrt
+% D = sqrt(repmat(aa, 1, nSmp_b) + repmat(bb', nSmp_a, 1) - 2*ab);
+% D = real(D);
+% else
+% D = repmat(aa, 1, nSmp_b) + repmat(bb', nSmp_a, 1) - 2*ab;
+% end
+%
+% D = abs(D);
+
+
+'''
 if __name__=='__main__':
+    g=GTL.LoadMonolithicOrSequenceSpecial('/home/morgan/MAX-notum.tif')
+    ExploreRange(g)
+    
+    '''
     InitializeMPL()
     app = SegmenterApp(0)
     
@@ -3612,3 +3695,4 @@ if __name__=='__main__':
     
     app.frame.OnInit(filename=f)
     app.MainLoop()
+    '''
