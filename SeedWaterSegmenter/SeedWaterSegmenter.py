@@ -3645,10 +3645,29 @@ def ExploreRange(img):
 def computeMatch(fea_a,fea_b):
     epsilon=2
     D=scipy.spatial.distance.cdist(fea_a,fea_b)
+    
+    matches=[]
+    continueMatching=True
+    
+    while continueMatching:
+        r,c = np.unravel_index(D.argmin(), D.shape)
+        
+        if D[r,c]<epsilon:
+            matches.append((r,c))
+            D[r,:]=float("inf")
+            D[:,c]=float("inf")
+        else:
+            continueMatching=False
+    
+    print matches
+    '''
     D[D>=epsilon]=float("inf")
     m = munkres.Munkres()
+    print D
     indexes = m.compute(D)
     print indexes
+    '''
+    
     '''
      aa = sum(fea_a.*fea_a,2);
      bb = sum(fea_b.*fea_b,2);
