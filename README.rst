@@ -1,5 +1,8 @@
-SeedWater Segmenter
+SeedWater Segmenter - MorganRCU fork
 ===================
+
+A fork of Seedwater Segmenter to include the computation of cell centroids
+
 
 Seedwater Segmenter (SWS) is a graphical Python program to interactively segment
 image stacks of cells in tissue with edge-labels (aka. white outlines).
